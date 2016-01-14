@@ -1,6 +1,7 @@
 
 # DupeFinder
-# Scans and catalogs files within a directory tree and revealing all duplicate files.
+# Author: Skot West 2016
+# Scans and catalogs files within a directory tree and compiles a list of all duplicate files.
 
 from sys import argv
 import os
@@ -11,9 +12,12 @@ namesAndHashes = {}
 completedDirs = []
 duplicates = []
 
-# ProcessDir first examines the log of completed directories. If the dir hasn't been processed,
-# then the contents will be examined. Files will have sha1 added to the list and directories will
-# be added to a queue to be processed later.
+# ProcessDir accepts a directory name argument.
+# This function first examines the log of already completed directories; if the dir hasn't already been 
+# processed, then its contents will be examined. 
+# Each (non-directory) file will be hashed and both the name (plus its absolute path) and the hash will be added
+# to a global "namesAndHashes" dictionary. Directories, when encountered, are added to a list for later processing
+# by this very same function.
 
 def processDir(dir):
 
@@ -23,7 +27,7 @@ def processDir(dir):
 
 	print("Scanning " + dir + "...")
 
-	# dirQueue is a list of sub-directories to be examined next
+	# "dirQueue" is a list of the current directory's sub-directories
 	dirQueue = []
 
 	# check whether this directory has already been scanned
@@ -31,13 +35,13 @@ def processDir(dir):
 		print(">>> Already processed " + dir + ". Skipping...")
 		return
 
-	# BEGIN CATALOGING
-	# namesAndHashes will store the key/item pairs as follows (hash : file name)  
-
-	# for each listing in this directory, deteremine if it is a file or a directory;
-	# generate a sha1 hash for each file and store
-
 	print(str(len(os.listdir(dir))) + " files found...\n")
+
+	# BEGIN CATALOGING
+	# namesAndHashes will store the key/item pairs as follows (hash : absolute path + file name)  
+
+	# For each object in this directory, deteremine if it is a file or a directory;
+	# For each file, generate a sha1 hash; for each directory, add it to the "dirQueue"
 
 	for i in os.listdir(dir):
 		i = dir + "/" + i
@@ -46,23 +50,22 @@ def processDir(dir):
 			retVal = subprocess.check_output(['sha1sum', '-b', i])
 			retVal = retVal[0:40]
 
-			# test whether the namesAndHashes already contains the same hash:
+			# Test whether namesAndHashes already contains an identical for this file hash;
+			# If a duplicate is found, add the name to the list, "duplicates"
+			# Otherwise, add it to namesAndHashes
 			if retVal in namesAndHashes:
 				duplicates.append((i,namesAndHashes[retVal]))
-				# duplicates.append((str(dir + "/" + i),namesAndHashes[retVal]))
 			else:
 				namesAndHashes[retVal] = i
-				# namesAndHashes[retVal] = str(dir + "/" + i)
 
 		elif os.path.isdir(i):
 			dirQueue.append(i)
 
-	# Having completed, append this directory to the liost of completed directories. 
+	# Having completed, append this directory to the list of completed directories. 
 	completedDirs.append(os.path.abspath(dir))
 	
 	# Finally, process all the sub-directories.
 	for i in dirQueue:
-		#processDir(i)
 		processDir(os.path.abspath(i))
 
 	return
@@ -72,7 +75,7 @@ def processDir(dir):
 
 # EXECUTION BEGINS HERE
 
-# check for presence of at least one argument
+# Check for presence of at least one argument (directory to search)
 if len(argv) > 1:
 	for i in range(1,len(argv)):
 		directoriesToSearch.append(argv[i])
@@ -80,19 +83,13 @@ else:
 	print(">>> ERROR: please specify a directory you wish to scan for duplicates.")
 	exit()
 
-# check whether the specified directory is actually a directory
-#if os.path.isdir(baseDir) == False:
-#	print(">>> ERROR: " + baseDir + " is not a valid directory.")
-#	exit()
-
 for dir in directoriesToSearch:
 	if os.path.isdir(dir):
-		#processDir(dir)
 		processDir(os.path.abspath(dir))
 
 
-print("\n")
-print(str(len(namesAndHashes)) + " total files scanned!")
+print("DONE!\n")
+print(str(len(namesAndHashes)) + " total files scanned.")
 print(str(len(duplicates)) + " duplicates found: ")
 for dupe in duplicates:
 	print(dupe)
