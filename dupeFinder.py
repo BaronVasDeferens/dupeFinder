@@ -3,6 +3,14 @@
 # Author: Skot West 2016
 # Scans and catalogs files within a directory tree and compiles a list of all duplicate files.
 
+
+# TODO: handle links sensibly
+# TODO: make recursive searching optional
+# TODO: specify filetype filter
+
+
+# Usage: 
+
 from sys import argv
 import os
 import subprocess
@@ -74,6 +82,16 @@ def processDir(dir):
 
 
 # EXECUTION BEGINS HERE
+
+# FLAGS AND DIRECTIVES
+# All flags and directives must immediate follow the call to DupeFinder (e.g. "DupFinder -r 1 -f .mp3 ~/Music")
+
+# NON-RECURSIVE SEARCH -l number_of_levels
+# By default, DupeFinder will perform and exhaustive recursive search on any/all folders listed.
+# With the "level" flag, the user may specify the recursive depth.
+
+# FILE TYPE
+
 
 # Check for presence of at least one argument (directory to search)
 if len(argv) > 1:
