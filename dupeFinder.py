@@ -20,6 +20,7 @@ completedDirs = []
 duplicates = []
 recursiveDepth = 99999
 fileFilter = ""
+verbosity = False
 
 
 # ProcessDir accepts a directory name argument and a depth argument.
@@ -32,6 +33,8 @@ fileFilter = ""
 def processDir(dir, depth):
 
 	global namesAndHashes
+	global fileFilter
+	global verbosity
 	global completedDirs
 	global duplicates
 
@@ -47,9 +50,7 @@ def processDir(dir, depth):
 		print(">>> Already processed " + dir + ". Skipping...")
 		return
 
-	print("Scanning " + dir + "...")
-
-	print(str(len(os.listdir(dir))) + " files found...\n")
+	print("Scanning " + dir + ": " + str(len(os.listdir(dir))) + " files...")
 
 	# BEGIN CATALOGING
 	# namesAndHashes will store the key/item pairs as follows (hash : absolute path + file name)  
@@ -58,19 +59,31 @@ def processDir(dir, depth):
 	# For each file, generate a sha1 hash; for each directory, add it to the "dirQueue"
 
 	for i in os.listdir(dir):
+		fileName = i
+		
+		# convert i into an absolute path
 		i = dir + "/" + i
 
 		if os.path.isfile(i):
-			retVal = subprocess.check_output(['sha1sum', '-b', i])
-			retVal = retVal[0:40]
 
-			# Test whether namesAndHashes already contains an identical for this file hash;
-			# If a duplicate is found, add the name to the list, "duplicates"
-			# Otherwise, add it to namesAndHashes
-			if retVal in namesAndHashes:
-				duplicates.append((i,namesAndHashes[retVal]))
-			else:
-				namesAndHashes[retVal] = i
+			# File filter check:
+			# examine the last n characters of fileName and compare them to fileFilter
+			if (fileFilter == "") or (fileName[-len(fileFilter):] == fileFilter):
+						
+				# Create subprocess to run the SHA1 hash on the file
+				retVal = subprocess.check_output(['sha1sum', '-b', i])
+				retVal = retVal[0:40]
+
+				if verbosity:
+					print("\t" + fileName + ": " + retVal)
+
+				# Test whether namesAndHashes already contains an identical for this file hash;
+				# If a duplicate is found, add the name to the list, "duplicates"
+				# Otherwise, add it to namesAndHashes
+				if retVal in namesAndHashes:
+					duplicates.append((i,namesAndHashes[retVal]))
+				else:
+					namesAndHashes[retVal] = i
 
 		elif os.path.isdir(i):
 			dirQueue.append(i)
@@ -85,6 +98,15 @@ def processDir(dir, depth):
 	return
 #end processDir
 
+def printUsage():
+	print("USAGE:")
+	print("\t python dupeFinder [flags] dir_to_search [addl_dirs_to_search]")
+	print("FLAGS:")
+	print("\t -r recursive_depth: controls depth of search.")
+	print("\t -f file_type: match only specific file types (e.g. .mp3)")
+	print("\t -v: displays everything, including SHA1 values")
+	print("\n")
+	return
 
 
 # EXECUTION BEGINS HERE
@@ -101,35 +123,71 @@ def processDir(dir, depth):
 # FLAG: FILTER BY FILE TYPE
 # -f file_type
 
-# FLAG: DISPLAY SHA1 HASH RESULTS
+# FLAG: VERBOSE DISPLAY
+# -v
 
 
 # Examine content of argv
-if len(argv) > 1:
-
+# No arguments or directories found: throw an error
+if len(argv) <= 1:
+	print(">>> ERROR: please specify a directory you wish to scan for duplicates.")
+	exit()
+else:
 	# Find flags and directives
-	# We are interested in positions 1,2,3,4
-	
+	# We are interested in positions 1,2,3,4...through n, where n is the number of total possible flag/argument pairs
+	# The case with the fewest possible arguments is: "dupeFinder.py /"
 	#pos  0       1 2  3   4 	5
 	# dupeFinder -r 3 -f .mp3 ~/Music
 	
-	# Look for recursive depth control flag
-	# TODO: as more flags and options are added, we'll need to search through argv a little more sensibly
-	if (len(argv) > 2):		
-		if (argv[1] == ("-r")) and argv[2].isdigit():
-			recursiveDepth = int(argv[2])
-		if (argv[1] == ("-f")) and argv[2].startswith("."):
-			fileFilter = argv[2]
-
 	for i in range(1,len(argv)):
-		directoriesToSearch.append(argv[i])
+		
+		# Recursive depth
+		if argv[i] == ("-r"):
+			try:
+				if argv[i+1].isdigit():
+					recursiveDepth = int(argv[i+1])
+					i = i + 1
+				else:
+					print("ERROR: -r flag requires numeric argument. See USAGE")
+					exit()
+			except:
+				printUsage()
+				exit()
 
-# No arguments or directories found: throw an error
-else:
-	print(">>> ERROR: please specify a directory you wish to scan for duplicates.")
+		# File types
+		elif argv[i] == ("-f"):
+			try:
+				if argv[i+1].startswith(".") and len(argv[i+1]) > 1:
+					fileFilter = argv[i+1]
+					i = i + 1
+				else:
+					print("ERROR: -f flag requires filetype argument (a period followed by at least one character). See USAGE")
+					exit()
+			except:
+				printUsage()
+				exit()
+
+		# Verbose display flag
+		elif argv[i] == ("-v"):
+			verbosity = True
+
+		# Directory argument
+		elif os.path.isdir(argv[i]):
+			directoriesToSearch.append(argv[i])
+
+
+# Check: did the user provide ANY directories to search?
+if len(directoriesToSearch) <= 0:
+	printUsage()
 	exit()
 
 
+# DEBUG: display all parameters
+print("PARAMETERS:")
+print("\tRecursive depth: " + str(recursiveDepth))
+print("\tFile filter: " + fileFilter)
+print("\tVerbosity: " + str(verbosity))
+print("\n")
 
 
 for dir in directoriesToSearch:
@@ -137,7 +195,7 @@ for dir in directoriesToSearch:
 		processDir(os.path.abspath(dir), recursiveDepth)
 
 
-print("FINISHED!\n")
+print("\n*** FINISHED! ***\n")
 print(str(len(namesAndHashes)) + " total files scanned.")
 print(str(len(duplicates)) + " duplicates found: ")
 for dupe in duplicates:
