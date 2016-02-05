@@ -5,10 +5,8 @@
 
 
 # TODO: handle links sensibly
-# TODO: specify filetype filter
-
-
-# Usage: 
+# TODO: allow for customizable output
+# TODO: add Windows support
 
 from sys import argv
 import os
